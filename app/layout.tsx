@@ -21,7 +21,10 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://listify.vercel.app'),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || 
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'https://listify-one.vercel.app')
+  ),
   title: {
     default: 'Listify - Beautiful Spotify Statistics',
     template: '%s | Listify',
