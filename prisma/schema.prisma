@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------
+// AUTHENTICATION MODELS (Better Auth Structure)
+// ---------------------------------------------------------
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime
+  updatedAt     DateTime
+
+  sessions Session[]
+  accounts Account[]
+
+  // App-specific relationships
+  topArtists    UserTopArtist[]
+  topTracks     UserTopTrack[]
+  historyCache  ListeningHistoryCache[]
+  playlists     Playlist[]
+  favoriteStats FavoriteStatistic[]
+  sharedReports SharedReport[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// ---------------------------------------------------------
+// NORMALIZED SPOTIFY DOMAIN MODELS
+// ---------------------------------------------------------
+
+model Artist {
+  id         String  @id // Spotify ID
+  name       String
+  imageUrl   String?
+  popularity Int?
+
+  genres   ArtistGenre[]
+  userTops UserTopArtist[]
+  albums   Album[]
+  tracks   TrackArtist[]
+}
+
+model Genre {
+  id      String        @id // Genre name (e.g. "dance pop")
+  artists ArtistGenre[]
+}
+
+// Junction: Artists <-> Genres
+model ArtistGenre {
+  artistId String
+  genreId  String
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  genre  Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([artistId, genreId])
+}
+
+model Album {
+  id          String  @id // Spotify ID
+  name        String
+  releaseDate String?
+  imageUrl    String?
+
+  artistId String?
+  artist   Artist? @relation(fields: [artistId], references: [id])
+  tracks   Track[]
+}
+
+model Track {
+  id         String  @id // Spotify ID
+  name       String
+  durationMs Int
+  explicit   Boolean @default(false)
+  previewUrl String?
+
+  // Audio Features
+  danceability Float?
+  energy       Float?
+  valence      Float?
+  acousticness Float?
+
+  albumId String?
+  album   Album?  @relation(fields: [albumId], references: [id])
+
+  artists  TrackArtist[]
+  userTops UserTopTrack[]
+}
+
+// Junction: Tracks <-> Artists
+model TrackArtist {
+  trackId  String
+  artistId String
+
+  track  Track  @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([trackId, artistId])
+}
+
+// ---------------------------------------------------------
+// USER DATA & PREFERENCES
+// ---------------------------------------------------------
+
+// Junction: Users <-> Artists (Top Artists)
+model UserTopArtist {
+  userId    String
+  artistId  String
+  timeRange String // "short_term", "medium_term", "long_term"
+  rank      Int // 1 to 50
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([userId, artistId, timeRange])
+}
+
+// Junction: Users <-> Tracks (Top Tracks)
+model UserTopTrack {
+  userId    String
+  trackId   String
+  timeRange String // "short_term", "medium_term", "long_term"
+  rank      Int // 1 to 50
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([userId, trackId, timeRange])
+}
+
+model ListeningHistoryCache {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timeRange String // "short_term", "medium_term", "long_term"
+  dataType  String // "artists", "tracks"
+  fetchedAt DateTime @default(now())
+
+  @@unique([userId, timeRange, dataType])
+}
+
+model Playlist {
+  id          String  @id // Spotify ID
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  imageUrl    String?
+  isPublic    Boolean @default(false)
+}
+
+model FavoriteStatistic {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statType String // e.g., "highest_energy_track", "most_obscure_artist"
+  value    String // Storing the ID or string representation of the stat
+  savedAt  DateTime @default(now())
+}
+
+model SharedReport {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme     String // e.g., "obsidian_glass", "neon_cyber"
+  timeRange String // e.g., "short_term"
+  publicUrl String   @unique
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+}
