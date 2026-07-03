@@ -52,6 +52,9 @@ export const metadata: Metadata = {
     description: 'Visualize your Spotify listening history in stunning detail.',
     images: ['/og-image.png'],
   },
+  verification: {
+    google: 'k1KxIyZDrd4uzDvVwvZPnLtqW6gTm4rDQ4BlT0483Cw',
+  },
 };
 
 export default function RootLayout({
